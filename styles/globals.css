@@ -1,0 +1,8 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #__next { height: 100%; background: #070d12; overflow: hidden; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a4a60; border-radius: 2px; }
+textarea { resize: none; }
+input, select, textarea, button { font-family: 'Space Grotesk', sans-serif; }
+select option { background: #0d1a22; }
