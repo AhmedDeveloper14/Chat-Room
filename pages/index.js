@@ -164,11 +164,19 @@ export default function KarachiLounge() {
   function setupRealtime(u) {
     if (realtimeRef.current) { supabase.removeChannel(realtimeRef.current) }
 
-    const channel = supabase.channel('karachi-lounge-global')
+    // Channel parameters standard set karein
+    const channel = supabase.channel('karachi-lounge-global', {
+      config: {
+        broadcast: { self: false },
+        presence: { key: u.nick },
+      }
+    })
 
-    // New global messages
+    // 1. New global messages listener (Schema binding fix)
     channel.on('postgres_changes', {
-      event: 'INSERT', schema: 'public', table: 'kl_messages'
+      event: 'INSERT', 
+      schema: 'public', 
+      table: 'kl_messages'
     }, (payload) => {
       const msg = payload.new
       setMessages(prev => {
@@ -179,14 +187,20 @@ export default function KarachiLounge() {
       if (msg.nick !== u.nick && !msg.is_system && soundRef.current) playSound('msg')
     })
 
-    // Presence changes
+    // 2. Presence table row changes sync
     channel.on('postgres_changes', {
-      event: '*', schema: 'public', table: 'kl_presence'
-    }, () => { fetchPresence() })
+      event: '*', 
+      schema: 'public', 
+      table: 'kl_presence'
+    }, () => { 
+      fetchPresence() 
+    })
 
-    // DMs for this user
+    // 3. Private DMs for this specific user
     channel.on('postgres_changes', {
-      event: 'INSERT', schema: 'public', table: 'kl_dms',
+      event: 'INSERT', 
+      schema: 'public', 
+      table: 'kl_dms',
       filter: `to_nick=eq.${u.nick}`
     }, (payload) => {
       const dm = payload.new
@@ -199,16 +213,27 @@ export default function KarachiLounge() {
       if (soundRef.current) playSound('dm')
     })
 
-    // Kicked: remove from presence triggers leave
+    // 4. Kicked Trigger Fix: Filter remove karke application logical handle karein
     channel.on('postgres_changes', {
-      event: 'DELETE', schema: 'public', table: 'kl_presence',
-      filter: `nick=eq.${u.nick}`
-    }, () => {
-      showToast('⚠️ You have been kicked from the lounge!')
-      setUser(null)
+      event: 'DELETE', 
+      schema: 'public', 
+      table: 'kl_presence'
+    }, (payload) => {
+      // Filter browser level par lagayein taaky socket identity crash na ho
+      if (payload.old && payload.old.nick === u.nick) {
+        showToast('⚠️ You have been kicked from the lounge!')
+        setUser(null)
+      } else {
+        fetchPresence()
+      }
     })
 
-    channel.subscribe()
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Successfully connected to Karachi Lounge Realtime!')
+      }
+    })
+    
     realtimeRef.current = channel
 
     // Initial presence fetch
